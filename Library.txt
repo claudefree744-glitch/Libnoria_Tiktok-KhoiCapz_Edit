@@ -3284,22 +3284,10 @@ function Library:CreateWindow(...)
         Parent = Library.HUDBar;
     });
 
-    -- FIX: tinh Width dua tren so nut That + padding that, KHONG dung 213px cu (dong 2854) lam san max nua.
-    -- 213px la gia tri Size luc HUDBar moi tao (chua co ButtonRow), khong lien quan gi den 5 nut ButtonSize=26.
-    -- Cong thuc tong quat (khong hardcode so nut) de an toan neu sau nay them/bot nut:
-    local NumControlButtons = 5; -- Lock, Shrink, Grow, Reset, Hide
-    local ButtonGap = 4;
-    local RowPaddingLeft, RowPaddingRight = 3, 3;
-
-    local RequiredButtonRowWidth = (ButtonSize * NumControlButtons)
-        + (ButtonGap * (NumControlButtons - 1))
-        + RowPaddingLeft + RowPaddingRight;
-
-    Library.HUDBar.Size = UDim2.new(0, RequiredButtonRowWidth, 0, Library.HUDBar.Size.Y.Offset);
-
-    -- Bat AutomaticSize.Y SAU KHI Width da on dinh va SAU KHI children/layout con da tao xong,
-    -- de HUDBar doc dung AbsoluteSize cua ButtonRow thay vi doc luc no chua layout xong (nguyen nhan tran nut).
     Library.HUDBar.AutomaticSize = Enum.AutomaticSize.Y;
+
+    -- HUDBar can du rong de chua het 5 nut to; Size.Y se duoc AutomaticSize tu tinh theo children.
+    Library.HUDBar.Size = UDim2.new(0, math.max(Library.HUDBar.Size.X.Offset, (ButtonSize * 5) + (4 * 4) + 10), 0, 0);
 
     local function CreateControlButton(Text, ToolTipText)
         local Btn = Library:Create('Frame', {
