@@ -161,12 +161,12 @@ function Library:CreateLabel(Properties, IsHud)
     return Library:Create(_Instance, Properties);
 end;
 
--- IsMobile: true nếu thiết bị chỉ có Touch (không có chuột) -> dùng để bật layout/controls mobile.
+-- IsMobile: true náº¿u thiáº¿t bá»‹ chá»‰ cĂ³ Touch (khĂ´ng cĂ³ chuá»™t) -> dĂ¹ng Ä‘á»ƒ báº­t layout/controls mobile.
 Library.IsMobile = InputService.TouchEnabled and (not InputService.MouseEnabled);
 
 function Library:MakeDraggable(Instance, Cutoff, LockTable)
-    -- LockTable (optional): 1 table dùng chung, kiểm tra LockTable.Locked == true để chặn kéo thả.
-    -- Dùng table thay vì bool đơn để nút Lock/Unlock có thể đổi giá trị này bất cứ lúc nào.
+    -- LockTable (optional): 1 table dĂ¹ng chung, kiá»ƒm tra LockTable.Locked == true Ä‘á»ƒ cháº·n kĂ©o tháº£.
+    -- DĂ¹ng table thay vĂ¬ bool Ä‘Æ¡n Ä‘á»ƒ nĂºt Lock/Unlock cĂ³ thá»ƒ Ä‘á»•i giĂ¡ trá»‹ nĂ y báº¥t cá»© lĂºc nĂ o.
     Instance.Active = true;
 
     local DragInput, StartPos, StartInputPos;
@@ -3080,11 +3080,11 @@ function Library:CreateWindow(...)
     end
 
     -- === Mobile support ===
-    -- Trên màn hình nhỏ (điện thoại), thu nhỏ + căn giữa cửa sổ để không bị tràn màn hình.
+    -- TrĂªn mĂ n hĂ¬nh nhá» (Ä‘iá»‡n thoáº¡i), thu nhá» + cÄƒn giá»¯a cá»­a sá»• Ä‘á»ƒ khĂ´ng bá»‹ trĂ n mĂ n hĂ¬nh.
     local ViewportSize = ScreenGui.AbsoluteSize;
 
     if ViewportSize.X <= 0 or ViewportSize.Y <= 0 then
-        -- ScreenGui chưa kịp render lần đầu -> dùng ViewportSize của Camera làm fallback.
+        -- ScreenGui chÆ°a ká»‹p render láº§n Ä‘áº§u -> dĂ¹ng ViewportSize cá»§a Camera lĂ m fallback.
         local Camera = workspace.CurrentCamera;
         ViewportSize = Camera and Camera.ViewportSize or Vector2.new(1920, 1080);
     end;
@@ -3102,7 +3102,7 @@ function Library:CreateWindow(...)
 
     local Window = {
         Tabs = {};
-        UILocked = { Locked = Library.IsSmallScreen or false }; -- bảng dùng chung để nút Lock bật/tắt kéo thả
+        UILocked = { Locked = Library.IsSmallScreen or false }; -- báº£ng dĂ¹ng chung Ä‘á»ƒ nĂºt Lock báº­t/táº¯t kĂ©o tháº£
     };
 
     local Outer = Library:Create('Frame', {
