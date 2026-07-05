@@ -49,6 +49,16 @@ local Library = {
 local RainbowStep = 0
 local Hue = 0
 
+-- === Do FPS & Ping (dung cho Watermark) ===
+local StatsService = game:GetService('Stats');
+
+local FrameCount = 0
+local FpsAccum = 0
+Library.FPS = 0
+Library.Ping = 0
+
+local PingRefreshAccum = 0
+
 table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
     RainbowStep = RainbowStep + Delta
 
@@ -64,6 +74,35 @@ table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
         Library.CurrentRainbowHue = Hue;
         Library.CurrentRainbowColor = Color3.fromHSV(Hue, 0.8, 1);
     end
+
+    -- FPS: dem so frame trong 1 giay, cap nhat moi giay 1 lan.
+    FrameCount = FrameCount + 1;
+    FpsAccum = FpsAccum + Delta;
+
+    if FpsAccum >= 1 then
+        Library.FPS = math.floor((FrameCount / FpsAccum) + 0.5);
+        FrameCount = 0;
+        FpsAccum = 0;
+    end;
+
+    -- Ping: chi can doc lai moi ~0.5s, khong can moi frame.
+    PingRefreshAccum = PingRefreshAccum + Delta;
+
+    if PingRefreshAccum >= 0.5 then
+        PingRefreshAccum = 0;
+
+        local Success, PingItem = pcall(function()
+            return StatsService.Network.ServerStatsItem['Data Ping'];
+        end);
+
+        if Success and PingItem then
+            local Ok, Value = pcall(function() return PingItem:GetValue(); end);
+
+            if Ok and type(Value) == 'number' then
+                Library.Ping = math.floor(Value + 0.5);
+            end;
+        end;
+    end;
 end))
 
 local function GetPlayersString()
@@ -161,12 +200,12 @@ function Library:CreateLabel(Properties, IsHud)
     return Library:Create(_Instance, Properties);
 end;
 
--- IsMobile: true náº¿u thiáº¿t bá»‹ chá»‰ cĂ³ Touch (khĂ´ng cĂ³ chuá»™t) -> dĂ¹ng Ä‘á»ƒ báº­t layout/controls mobile.
+-- IsMobile: true nếu thiết bị chỉ có Touch (không có chuột) -> dùng để bật layout/controls mobile.
 Library.IsMobile = InputService.TouchEnabled and (not InputService.MouseEnabled);
 
 function Library:MakeDraggable(Instance, Cutoff, LockTable)
-    -- LockTable (optional): 1 table dĂ¹ng chung, kiá»ƒm tra LockTable.Locked == true Ä‘á»ƒ cháº·n kĂ©o tháº£.
-    -- DĂ¹ng table thay vĂ¬ bool Ä‘Æ¡n Ä‘á»ƒ nĂºt Lock/Unlock cĂ³ thá»ƒ Ä‘á»•i giĂ¡ trá»‹ nĂ y báº¥t cá»© lĂºc nĂ o.
+    -- LockTable (optional): 1 table dùng chung, kiểm tra LockTable.Locked == true để chặn kéo thả.
+    -- Dùng table thay vì bool đơn để nút Lock/Unlock có thể đổi giá trị này bất cứ lúc nào.
     Instance.Active = true;
 
     local DragInput, StartPos, StartInputPos;
@@ -2965,6 +3004,48 @@ function Library:SetWatermark(Text)
     Library.WatermarkText.Text = Text;
 end;
 
+-- === Watermark dang "Ten UI | Username | wifi(ms) | FPS" ===
+-- Library.FPS va Library.Ping duoc cap nhat san trong vong lap RenderStepped o dau file.
+Library.WatermarkUIName = 'UI';
+Library.WatermarkAutoUpdate = false;
+
+local WatermarkUpdateAccum = 0
+
+function Library:SetWatermarkFormat(UIName)
+    -- Bat che do watermark tu dong cap nhat theo dinh dang: Ten UI | Username | wifi(ms) | FPS
+    Library.WatermarkUIName = UIName or Library.WatermarkUIName;
+    Library.WatermarkAutoUpdate = true;
+
+    Library:SetWatermark(string.format(
+        '%s | %s | %dms | %d fps',
+        Library.WatermarkUIName,
+        LocalPlayer.Name,
+        Library.Ping,
+        Library.FPS
+    ));
+end;
+
+table.insert(Library.Signals, RenderStepped:Connect(function(Delta)
+    if not Library.WatermarkAutoUpdate then
+        return;
+    end;
+
+    WatermarkUpdateAccum = WatermarkUpdateAccum + Delta;
+
+    -- Cap nhat text moi 0.5s de tranh GetTextBounds/resize watermark lien tuc moi frame.
+    if WatermarkUpdateAccum >= 0.5 then
+        WatermarkUpdateAccum = 0;
+
+        Library:SetWatermark(string.format(
+            '%s | %s | %dms | %d fps',
+            Library.WatermarkUIName,
+            LocalPlayer.Name,
+            Library.Ping,
+            Library.FPS
+        ));
+    end;
+end));
+
 function Library:Notify(Text, Time)
     local XSize, YSize = Library:GetTextBounds(Text, Library.Font, 14);
 
@@ -3080,11 +3161,11 @@ function Library:CreateWindow(...)
     end
 
     -- === Mobile support ===
-    -- TrĂªn mĂ n hĂ¬nh nhá» (Ä‘iá»‡n thoáº¡i), thu nhá» + cÄƒn giá»¯a cá»­a sá»• Ä‘á»ƒ khĂ´ng bá»‹ trĂ n mĂ n hĂ¬nh.
+    -- Trên màn hình nhỏ (điện thoại), thu nhỏ + căn giữa cửa sổ để không bị tràn màn hình.
     local ViewportSize = ScreenGui.AbsoluteSize;
 
     if ViewportSize.X <= 0 or ViewportSize.Y <= 0 then
-        -- ScreenGui chÆ°a ká»‹p render láº§n Ä‘áº§u -> dĂ¹ng ViewportSize cá»§a Camera lĂ m fallback.
+        -- ScreenGui chưa kịp render lần đầu -> dùng ViewportSize của Camera làm fallback.
         local Camera = workspace.CurrentCamera;
         ViewportSize = Camera and Camera.ViewportSize or Vector2.new(1920, 1080);
     end;
@@ -3102,7 +3183,7 @@ function Library:CreateWindow(...)
 
     local Window = {
         Tabs = {};
-        UILocked = { Locked = Library.IsSmallScreen or false }; -- báº£ng dĂ¹ng chung Ä‘á»ƒ nĂºt Lock báº­t/táº¯t kĂ©o tháº£
+        UILocked = { Locked = Library.IsSmallScreen or false }; -- bảng dùng chung để nút Lock bật/tắt kéo thả
     };
 
     local Outer = Library:Create('Frame', {
@@ -3142,18 +3223,62 @@ function Library:CreateWindow(...)
         Parent = Inner;
     });
 
-    -- === Nut Lock/Unlock + Hide (thu gon UI) o goc phai tren cua so ===
-    -- Lock: chi khoa keo-tha (drag), khong an UI.
-    -- Hide: thu UI thanh 1 nut noi, bam lai nut do de hien lai UI.
-    local function CreateHeaderButton(Text, XOffsetFromRight)
+    -- === Cum nut dieu khien UI: Lock/Unlock, Hide/Show, Resize (>/<), Reset ===
+    -- Tach thanh 1 Frame rieng (ControlBar), dat ben ngoai Inner/Outer -> keo di chuyen doc lap voi Window,
+    -- khong bi anh huong boi Lock (Lock chi khoa vi tri cua Window, khong khoa ControlBar).
+    local DefaultWindowPosition = Config.Position;
+    local DefaultWindowSize = Config.Size;
+
+    -- Buoc tang/giam kich thuoc moi lan bam >/< va gioi han min/max de UI khong bi vo layout.
+    local ResizeStep = 40;
+    local MinWindowSize = Vector2.new(360, 260);
+    local MaxWindowSize = Vector2.new(
+        math.max(DefaultWindowSize.X.Offset + 300, 900),
+        math.max(DefaultWindowSize.Y.Offset + 300, 900)
+    );
+
+    local ControlBar = Library:Create('Frame', {
+        BackgroundColor3 = Library.MainColor;
+        BorderColor3 = Library.AccentColor;
+        BorderMode = Enum.BorderMode.Inset;
+        AnchorPoint = Vector2.new(1, 0);
+        -- Vi tri mac dinh: bam sat goc phai tren cua Window luc khoi tao.
+        Position = UDim2.new(0, Config.Position.X.Offset + Config.Size.X.Offset, 0, Config.Position.Y.Offset - 24),
+        Size = UDim2.new(0, 17 * 5 + 4 * 4 + 6, 0, 20);
+        ZIndex = 5;
+        Parent = ScreenGui;
+    });
+
+    Library:AddToRegistry(ControlBar, {
+        BackgroundColor3 = 'MainColor';
+        BorderColor3 = 'AccentColor';
+    });
+
+    Library:Create('UIListLayout', {
+        FillDirection = Enum.FillDirection.Horizontal;
+        SortOrder = Enum.SortOrder.LayoutOrder;
+        Padding = UDim.new(0, 4);
+        VerticalAlignment = Enum.VerticalAlignment.Center;
+        HorizontalAlignment = Enum.HorizontalAlignment.Center;
+        Parent = ControlBar;
+    });
+
+    Library:Create('UIPadding', {
+        PaddingLeft = UDim.new(0, 3);
+        PaddingRight = UDim.new(0, 3);
+        Parent = ControlBar;
+    });
+
+    -- Ca ControlBar co the keo tha tu do (Cutoff lon = toan bo thanh la vung keo, vi no chi chua nut nho).
+    Library:MakeDraggable(ControlBar, 20);
+
+    local function CreateControlButton(Text, ToolTipText)
         local Btn = Library:Create('Frame', {
             BackgroundColor3 = Library.BackgroundColor;
             BorderColor3 = Library.OutlineColor;
-            AnchorPoint = Vector2.new(1, 0);
-            Position = UDim2.new(1, XOffsetFromRight, 0, 4);
             Size = UDim2.new(0, 17, 0, 17);
-            ZIndex = 2;
-            Parent = Inner;
+            ZIndex = 6;
+            Parent = ControlBar;
         });
 
         Library:AddToRegistry(Btn, {
@@ -3168,7 +3293,7 @@ function Library:CreateWindow(...)
             Text = Text;
             TextSize = 13;
             TextXAlignment = Enum.TextXAlignment.Center;
-            ZIndex = 3;
+            ZIndex = 7;
             Parent = Btn;
         });
 
@@ -3176,14 +3301,19 @@ function Library:CreateWindow(...)
             BackgroundTransparency = 1;
             Size = UDim2.new(1, 0, 1, 0);
             Text = '';
-            ZIndex = 4;
+            ZIndex = 8;
             Parent = Btn;
         });
+
+        if ToolTipText then
+            Library:AddToolTip(ToolTipText, ClickArea);
+        end;
 
         return Btn, BtnLabel, ClickArea;
     end;
 
-    local LockBtn, LockLabel, LockClick = CreateHeaderButton(Window.UILocked.Locked and 'v' or 'L', -4);
+    -- Nut Lock/Unlock: chi khoa keo-tha (drag) cua Window, khong an UI.
+    local LockBtn, LockLabel, LockClick = CreateControlButton(Window.UILocked.Locked and 'v' or 'L', 'Khoa/Mo khoa vi tri UI (khong an UI)');
 
     local function RefreshLockVisual()
         LockLabel.Text = Window.UILocked.Locked and 'v' or 'L';
@@ -3199,15 +3329,57 @@ function Library:CreateWindow(...)
         RefreshLockVisual();
     end);
 
-    Library:AddToolTip('Khoa/Mo khoa vi tri UI (khong an UI)', LockClick);
-
     function Window:SetLocked(State)
         Window.UILocked.Locked = State and true or false;
         RefreshLockVisual();
     end;
 
+    -- Nut thu nho UI ( < ): giam Size cua Window, khong nho hon MinWindowSize.
+    local ShrinkBtn, ShrinkLabel, ShrinkClick = CreateControlButton('<', 'Thu nho UI');
+
+    -- Nut phong to UI ( > ): tang Size cua Window, khong lon hon MaxWindowSize.
+    local GrowBtn, GrowLabel, GrowClick = CreateControlButton('>', 'Phong to UI');
+
+    local function ClampWindowSize(NewSize)
+        return Vector2.new(
+            math.clamp(NewSize.X, MinWindowSize.X, MaxWindowSize.X),
+            math.clamp(NewSize.Y, MinWindowSize.Y, MaxWindowSize.Y)
+        );
+    end;
+
+    local function ResizeWindowBy(DeltaX, DeltaY)
+        local CurrentSize = Vector2.new(Outer.Size.X.Offset, Outer.Size.Y.Offset);
+        local NewSize = ClampWindowSize(CurrentSize + Vector2.new(DeltaX, DeltaY));
+
+        Outer.Size = UDim2.new(Outer.Size.X.Scale, NewSize.X, Outer.Size.Y.Scale, NewSize.Y);
+    end;
+
+    ShrinkClick.MouseButton1Click:Connect(function()
+        ResizeWindowBy(-ResizeStep, -ResizeStep * (DefaultWindowSize.Y.Offset / DefaultWindowSize.X.Offset));
+    end);
+
+    GrowClick.MouseButton1Click:Connect(function()
+        ResizeWindowBy(ResizeStep, ResizeStep * (DefaultWindowSize.Y.Offset / DefaultWindowSize.X.Offset));
+    end);
+
+    -- Nut Reset: dua Window va ControlBar ve lai vi tri + kich thuoc mac dinh luc khoi tao.
+    local ResetBtn, ResetLabel, ResetClick = CreateControlButton('R', 'Dat lai vi tri/kich thuoc UI mac dinh');
+
+    local function ResetWindowToDefault()
+        Outer.Position = DefaultWindowPosition;
+        Outer.Size = DefaultWindowSize;
+
+        ControlBar.Position = UDim2.new(0, DefaultWindowPosition.X.Offset + DefaultWindowSize.X.Offset, 0, DefaultWindowPosition.Y.Offset - 24);
+    end;
+
+    ResetClick.MouseButton1Click:Connect(ResetWindowToDefault);
+
+    function Window:ResetUI()
+        ResetWindowToDefault();
+    end;
+
     -- Nut Hide: thu UI lai thanh icon noi co the keo di bat ky dau, bam de hien lai.
-    local HideBtn, HideLabel, HideClick = CreateHeaderButton('_', -25);
+    local HideBtn, HideLabel, HideClick = CreateControlButton('_', 'An UI (bam vao icon noi de hien lai)');
 
     local RestoreIcon = Library:Create('Frame', {
         BackgroundColor3 = Library.MainColor;
@@ -3254,6 +3426,7 @@ function Library:CreateWindow(...)
         RestoreClickedThisFrame = true;
 
         Outer.Visible = true;
+        ControlBar.Visible = true;
         RestoreIcon.Visible = false;
 
         task.defer(function() RestoreClickedThisFrame = false end);
@@ -3261,10 +3434,9 @@ function Library:CreateWindow(...)
 
     HideClick.MouseButton1Click:Connect(function()
         Outer.Visible = false;
+        ControlBar.Visible = false;
         RestoreIcon.Visible = true;
     end);
-
-    Library:AddToolTip('An UI (bam vao icon noi de hien lai)', HideClick);
 
     local MainSectionOuter = Library:Create('Frame', {
         BackgroundColor3 = Library.BackgroundColor;
@@ -3791,6 +3963,11 @@ function Library:CreateWindow(...)
             -- A bit scuffed, but if we're going from not toggled -> toggled we want to show the frame immediately so that the fade is visible.
             Outer.Visible = true;
 
+            -- ControlBar chi hien lai neu Window dang khong bi thu gon (RestoreIcon.Visible == false).
+            if not RestoreIcon.Visible then
+                ControlBar.Visible = true;
+            end;
+
             task.spawn(function()
                 -- TODO: add cursor fade?
                 local State = InputService.MouseIconEnabled;
@@ -3895,6 +4072,17 @@ function Library:CreateWindow(...)
 
         if ClampedX ~= Pos.X or ClampedY ~= Pos.Y then
             Outer.Position = UDim2.fromOffset(ClampedX, ClampedY);
+        end;
+
+        -- ControlBar cung duoc keo ve lai trong man hinh, doc lap voi Window.
+        local CtrlPos = ControlBar.AbsolutePosition;
+        local CtrlSize = ControlBar.AbsoluteSize;
+
+        local CtrlClampedX = math.clamp(CtrlPos.X, 0, math.max(0, VP.X - CtrlSize.X));
+        local CtrlClampedY = math.clamp(CtrlPos.Y, 0, math.max(0, VP.Y - CtrlSize.Y));
+
+        if CtrlClampedX ~= CtrlPos.X or CtrlClampedY ~= CtrlPos.Y then
+            ControlBar.Position = UDim2.fromOffset(CtrlClampedX + CtrlSize.X, CtrlClampedY);
         end;
     end));
 
