@@ -3010,7 +3010,9 @@ end;
 
 function Library:SetWatermark(Text)
     local X, Y = Library:GetTextBounds(Text, Library.Font, 14);
-    local NewWidth = math.max(X + 15, 120);
+    -- Khong bao gio nho hon 120px (cu) VA khong bao gio nho hon be rong cum nut Lock/</>/R/Hide
+    -- (Library.HUDBarMinWidth) -> day chinh la nguyen nhan cum nut bi "tran ra ngoai khung" truoc day.
+    local NewWidth = math.max(X + 15, 120, Library.HUDBarMinWidth or 0);
 
     Library.HUDBar.Size = UDim2.new(0, NewWidth, 0, Library.HUDBar.Size.Y.Offset);
     Library:SetWatermarkVisibility(true)
@@ -3251,7 +3253,10 @@ function Library:CreateWindow(...)
         math.max(DefaultWindowSize.Y.Offset + 300, 900)
     );
 
-    local ButtonSize = 26; -- to hon ban cu (17px) de bam de hon, dac biet tren mobile.
+    -- Nut to hon CHI tren thiet bi cam ung (de bam de hon); tren PC/chuot giu kich thuoc cu (17px)
+    -- de khong bi "to qua muc" nhu ban co dinh 26px truoc day.
+    local ButtonSize = Library.IsMobile and 26 or 17;
+    local ButtonTextSize = Library.IsMobile and 16 or 13;
 
     local ButtonRow = Library:Create('Frame', {
         BackgroundTransparency = 1;
@@ -3287,7 +3292,10 @@ function Library:CreateWindow(...)
     Library.HUDBar.AutomaticSize = Enum.AutomaticSize.Y;
 
     -- HUDBar can du rong de chua het 5 nut to; Size.Y se duoc AutomaticSize tu tinh theo children.
-    Library.HUDBar.Size = UDim2.new(0, math.max(Library.HUDBar.Size.X.Offset, (ButtonSize * 5) + (4 * 4) + 10), 0, 0);
+    -- Luu lai chieu rong toi thieu nay (Library.HUDBarMinWidth) de SetWatermark() ben duoi khong
+    -- bao gio thu nho HUDBar nho hon muc nay -> tranh cac nut bi tran ra ngoai khung.
+    Library.HUDBarMinWidth = (ButtonSize * 5) + (4 * 4) + 10;
+    Library.HUDBar.Size = UDim2.new(0, math.max(Library.HUDBar.Size.X.Offset, Library.HUDBarMinWidth), 0, 0);
 
     local function CreateControlButton(Text, ToolTipText)
         local Btn = Library:Create('Frame', {
@@ -3308,7 +3316,7 @@ function Library:CreateWindow(...)
             Position = UDim2.new(0.5, 0, 0.5, -1);
             Size = UDim2.new(1, 0, 1, 0);
             Text = Text;
-            TextSize = 18;
+            TextSize = ButtonTextSize;
             TextXAlignment = Enum.TextXAlignment.Center;
             ZIndex = 207;
             Parent = Btn;
